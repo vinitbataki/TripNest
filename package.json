@@ -6,5 +6,8 @@
     "dev": "npx netlify-cli dev",
     "dev:vercel": "npx vercel dev",
     "deploy": "npx netlify-cli deploy --prod"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.11.0"
   }
 }
