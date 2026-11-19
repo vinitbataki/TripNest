@@ -1,13 +1,13 @@
 [build]
   publish = "."
 
+[build.environment]
+  # ANTHROPIC_MODEL is a public model name (it appears in the source as a default),
+  # not a secret, so exclude it from secrets scanning.
+  SECRETS_SCAN_OMIT_KEYS = "ANTHROPIC_MODEL"
+
 [functions]
   directory = "netlify/functions"
-
-[[redirects]]
-  from = "/api/ai"
-  to = "/.netlify/functions/ai"
-  status = 200
 
 [[redirects]]
   from = "/api/photo"
