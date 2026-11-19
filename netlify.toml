@@ -1,6 +1,12 @@
 [build]
   publish = "."
 
+[build.environment]
+  # ANTHROPIC_MODEL is a model name, not a credential. It is marked secret in
+  # the project settings, and its value also appears as the code default, which
+  # made secrets scanning fail the build. Real keys are still scanned.
+  SECRETS_SCAN_OMIT_KEYS = "ANTHROPIC_MODEL"
+
 [functions]
   directory = "netlify/functions"
 
