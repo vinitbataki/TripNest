@@ -1,0 +1,10 @@
+{
+  "name": "tripnest",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "npx netlify-cli dev",
+    "dev:vercel": "npx vercel dev",
+    "deploy": "npx netlify-cli deploy --prod"
+  }
+}
