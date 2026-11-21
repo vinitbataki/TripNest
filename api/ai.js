@@ -1,25 +1,41 @@
 // AI endpoint. Providers are tried in this order if their key is set:
 // NVIDIA (NVIDIA_API_KEY), Google Gemini (GEMINI_API_KEY), Claude (ANTHROPIC_API_KEY).
 const CLAUDE_MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-5-5";
-const NVIDIA_MODELS = [process.env.NVIDIA_MODEL, "meta/llama-3.3-70b-instruct", "meta/llama-3.1-70b-instruct", "meta/llama-3.1-8b-instruct"].filter(Boolean);
+const NVIDIA_MODELS = [
+  process.env.NVIDIA_MODEL,
+  "nvidia/nemotron-3.5-lightning-30b-a3b",
+  "minimaxai/minimax-m3.1-flash",
+  "mistralai/mistral-large-4-1t-a52b",
+  "fastino/gliner2-pii",
+].filter(Boolean);
 const GEMINI_MODELS = [process.env.GEMINI_MODEL, "gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.7-flash"].filter(Boolean);
 
 async function viaNvidia(prompt) {
   let last = "NVIDIA request failed";
   for (const model of NVIDIA_MODELS) {
+    const isGliner = model.includes("gliner");
+    const payload = {
+      model,
+      messages: [{ role: "user", content: prompt }],
+      ...(isGliner
+        ? { labels: ["person", "location", "organization", "date", "email", "phone_number"], threshold: 0.3 }
+        : { temperature: 0.2, top_p: 0.7, max_tokens: 3000 }),
+    };
+
     const r = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: "Bearer " + process.env.NVIDIA_API_KEY, "content-type": "application/json" },
-      body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }], temperature: 0.2, top_p: 0.7, max_tokens: 3000, stream: false }),
+      body: JSON.stringify(payload),
     });
     const j = await r.json().catch(() => ({}));
     if (r.ok) {
-      const text = (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || "";
+      const choice = j.choices && j.choices[0];
+      const text = (choice && choice.message && (choice.message.content || choice.message.reasoning_content)) || "";
       if (text) return { text, model };
       last = "Empty reply from " + model;
     } else {
       last = model + ": " + ((j.error && j.error.message) || j.detail || j.title || r.status);
-      if (r.status === 401 || r.status === 403) break; // key problem: other models will fail the same way
+      if (r.status === 401 || r.status === 403) break;
     }
   }
   throw new Error(last);
