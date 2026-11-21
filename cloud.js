@@ -75,7 +75,7 @@
   async function pull(force) {
     if (!S.me || dirty) return;
     const { data, error } = await sb.from("trips").select("data");
-    if (error || !data) return;
+    if (error || !data) { if (error && !window._pullWarned) { window._pullWarned = true; toast("Could not load trips: " + error.message); } return; }
     const ts = data.map((r) => r.data), k = JSON.stringify(ts);
     if (k == last && !force) return;
     last = k; S.trips = ts; persist();
@@ -87,11 +87,13 @@
       try {
         for (const t of mine()) {
           const row = { data: t, updated_at: new Date().toISOString() };
-          if (t.owner == S.me) await sb.from("trips").upsert({ id: t.id, code: t.code, owner: t.owner, ...row });
-          else await sb.from("trips").update(row).eq("id", t.id);
+          const r = t.owner == S.me
+            ? await sb.from("trips").upsert({ id: t.id, code: t.code, owner: t.owner, ...row })
+            : await sb.from("trips").update(row).eq("id", t.id);
+          if (r.error) throw r.error;
         }
         last = JSON.stringify(S.trips.filter((t) => t.members.some((m) => m.id == S.me)));
-      } catch (e) { console.error("push failed", e); }
+      } catch (e) { console.error("push failed", e); toast("Could not save trip: " + (e.message || e)); }
       finally { dirty = false; }
     }, 500);
   };
