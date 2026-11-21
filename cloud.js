@@ -84,12 +84,15 @@
   window.cloudPush = () => {
     if (!S.me) return; dirty = true; clearTimeout(pushT);
     pushT = setTimeout(async () => {
-      for (const t of mine()) {
-        const row = { data: t, updated_at: new Date().toISOString() };
-        if (t.owner == S.me) await sb.from("trips").upsert({ id: t.id, code: t.code, owner: t.owner, ...row });
-        else await sb.from("trips").update(row).eq("id", t.id);
-      }
-      dirty = false; last = JSON.stringify(S.trips.filter((t) => t.members.some((m) => m.id == S.me)));
+      try {
+        for (const t of mine()) {
+          const row = { data: t, updated_at: new Date().toISOString() };
+          if (t.owner == S.me) await sb.from("trips").upsert({ id: t.id, code: t.code, owner: t.owner, ...row });
+          else await sb.from("trips").update(row).eq("id", t.id);
+        }
+        last = JSON.stringify(S.trips.filter((t) => t.members.some((m) => m.id == S.me)));
+      } catch (e) { console.error("push failed", e); }
+      finally { dirty = false; }
     }, 500);
   };
   const val = (id) => ($(id) ? $(id).value : "");
@@ -125,9 +128,15 @@
   window.saveProfile = () => { O.saveProfile(); upProfile(); };
   window.pickAv = (i) => { O.pickAv(i); upProfile(); };
   window.joinCode = async (c) => {
-    const { data, error } = await sb.rpc("join_trip", { p_code: c });
-    if (error || !data || !data.id) { toast("Invalid trip code"); return go("home"); }
-    await pull(true); toast("Joined " + data.data.name + " 🎉"); go("trip", { trip: data.id, tt: "plan" });
+    const { data, error } = await sb.rpc("join_trip", { p_code: String(c).trim() });
+    if (error) { toast("Could not join: " + error.message); return go("home"); }
+    if (!data || !data.id) { toast("Invalid trip code"); return go("home"); }
+    const t = data.data || {};
+    t.id = data.id; t.code = data.code; t.owner = data.owner;
+    S.trips = S.trips.filter((x) => x.id != t.id).concat([t]); // show it immediately, do not wait for the next poll
+    last = ""; persist();
+    toast("Joined " + (t.name || "trip") + " 🎉");
+    go("trip", { trip: t.id, tt: "plan" });
   };
   window.doDel = async (id) => { const t = S.trips.find((x) => x.id == id); O.doDel(id); if (t && t.owner == S.me) await sb.from("trips").delete().eq("id", id); };
   window.leave = async (id) => {
